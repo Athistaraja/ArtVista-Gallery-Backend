@@ -9,13 +9,12 @@ const auth = async (req, res, next) => {
   
       if (!token) {
         return res.status(401).json({ message: 'No token, authorization denied' });
-      }
-  
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      console.log('Decoded token:', decoded); // Debug log
-      req.user = decoded;
-  
-      next();
+    }
+
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        req.user = decoded; // Assuming token contains user ID and role
+        next();
     } catch (error) {
       console.error('Token verification error:', error); // Debug log
       res.status(401).json({ message: 'Token is not valid' });
