@@ -21,7 +21,13 @@ const auth = async (req, res, next) => {
       res.status(401).json({ message: 'Token is not valid' });
     }
   };
-
+ 
+// const checkRole = (req, res, next) => {
+//     if (req.user.role !== 'artist') {
+//       return res.status(403).json({ message: 'Access denied, artist only' });
+//     }
+//     next();
+// };  
 
 const checkRole = (roles) => {
     return (req, res, next) => {
