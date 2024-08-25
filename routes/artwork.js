@@ -6,7 +6,7 @@ const { auth, checkRole } = require('../middleware/auth');
 
 // Create Artwork with Image URL (Artist Only)
 // Add new artwork
-router.post('/add', auth,checkRole, async (req, res) => {
+router.post('/add', auth,checkRole(['artist']), async (req, res) => {
   try {
     const { title, description, price, image,category } = req.body;
     const artistId = req.user.userId; // Assuming the user ID is stored in req.user
@@ -34,66 +34,6 @@ router.post('/add', auth,checkRole, async (req, res) => {
 });
 
 
-
-// // Read All Artwork
-// router.get('/', async (req, res) => {
-//     try {
-//       const artworks = await Artwork.find();
-//       res.json(artworks);
-//     } catch (error) {
-//       res.status(500).json({ message: error.message });
-//     }
-//   });
-
-// // search
-// router.get('/', async (req, res) => {
-//     try {
-//       const { search, category } = req.query;
-//       let query = {};
-  
-//       if (search) {
-//         query.title = { $regex: search, $options: 'i' }; // case-insensitive search
-//       }
-  
-//       if (category) {
-//         query.category = category;
-//       }
-  
-//       const artworks = await Artwork.find(query);
-//       res.json(artworks);
-//     } catch (error) {
-//       res.status(500).json({ error: 'Internal server error' });
-//     }
-//   });
-
-// // Update Artwork (Artist Only)
-// router.put('/:id', auth, checkRole('artist'), async (req, res) => {
-//     try {
-//         const artwork = await Artwork.findOne({ _id: req.params.id, artist: req.user.userId });
-//         if (!artwork) {
-//             return res.status(404).json({ message: 'Artwork not found' });
-//         }
-//         Object.assign(artwork, req.body);
-//         await artwork.save();
-//         res.json(artwork);
-//     } catch (error) {
-//         res.status(500).json({ message: 'Server Error' });
-//     }
-// });
-
-// // Delete Artwork (Artist Only)
-// router.delete('/:id', auth, checkRole('artist'), async (req, res) => {
-//     try {
-//         const artwork = await Artwork.findOneAndDelete({ _id: req.params.id, artist: req.user.userId });
-//         if (!artwork) {
-//             return res.status(404).json({ message: 'Artwork not found' });
-//         }
-//         res.json({ message: 'Artwork deleted' });
-//     } catch (error) {
-//         res.status(500).json({ message: 'Server Error' });
-//     }
-// });
-
 router.get('/', async (req, res) => {
   try {
     const artworks = await Artwork.find().populate('artist', ['username']);
@@ -103,6 +43,7 @@ router.get('/', async (req, res) => {
     res.status(500).send('Server error');
   }
 });
+
 
 router.patch('/api/artwork/:id/rating', auth, async (req, res) => {
   const { id } = req.params;
@@ -126,47 +67,56 @@ router.patch('/api/artwork/:id/rating', auth, async (req, res) => {
   }
 });
 
-// // Create new artwork (artists only)
-// router.post('/add', auth,checkRole, async (req, res) => {
-//   try {
-//     const newArtwork = new Artwork({ ...req.body, userId: req.user.id });
-//     await newArtwork.save();
-//     res.status(201).json(newArtwork);
-//   } catch (error) {
-//     res.status(500).json({ message: error.message });
-//   }
-// });
 
-// Update artwork (artists only)
-router.put('/:id',auth, checkRole, async (req, res) => {
+router.get('/my-artworks', auth, checkRole(['artist']), async (req, res) => {
   try {
-    const artwork = await Artwork.findById(req.params.id);
-    if (!artwork) return res.status(404).json({ message: 'Artwork not found' });
-
-    if (artwork.userId.toString() !== req.user.id) return res.status(403).json({ message: 'Access denied' });
-
-    Object.assign(artwork, req.body);
-    await artwork.save();
-    res.json(artwork);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
+    const artistId = req.user.userId;
+    const artworks = await Artwork.find({ artist: artistId });
+    res.json(artworks);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server error');
   }
 });
 
-// Delete artwork (artists only)
-router.delete('/:id', auth,checkRole, async (req, res) => {
+// Update Artwork (Artist Only)
+router.put('/:id', auth,checkRole(['artist']), async (req, res) => {
   try {
-    const artwork = await Artwork.findById(req.params.id);
-    if (!artwork) return res.status(404).json({ message: 'Artwork not found' });
+      const artworkId = req.params.id;
+      const updatedData = req.body;
 
-    if (artwork.userId.toString() !== req.user.id) return res.status(403).json({ message: 'Access denied' });
+      const updatedArtwork = await Artwork.findByIdAndUpdate(artworkId, updatedData, { new: true });
 
-    await artwork.remove();
-    res.json({ message: 'Artwork deleted successfully' });
+      if (!updatedArtwork) {
+          return res.status(404).json({ message: 'Artwork not found' });
+      }
+
+      res.status(200).json(updatedArtwork);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+      console.error('Error updating artwork:', error);
+      res.status(500).json({ message: 'Internal Server Error' });
   }
 });
 
+// Delete Artwork (Artist Only)
+router.delete('/:id', auth,checkRole(['artist']), async (req, res) => {
+  try {
+      const artworkId = req.params.id;
+      
+      // Attempt to find and delete the artwork
+      const deletedArtwork = await Artwork.findByIdAndDelete(artworkId);
+      
+      // If artwork not found, return 404
+      if (!deletedArtwork) {
+          return res.status(404).json({ message: 'Artwork not found' });
+      }
+
+      // Return success response
+      res.status(200).json({ message: 'Artwork deleted successfully' });
+  } catch (error) {
+      console.error('Error deleting artwork:', error); // Log the error
+      res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
 
 module.exports = router;
