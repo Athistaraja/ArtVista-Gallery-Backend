@@ -1,46 +1,75 @@
 const express = require('express');
+const Cart = require('../models/Cart');
+const { auth, checkRole } = require('../middleware/auth');
 const router = express.Router();
-const Cart = require('../models/Cart'); // Your Cart model
-const {auth} = require('../middleware/auth'); // Your auth middleware
 
-// Get cart items for a user
-router.get('/:userId', auth, async (req, res) => {
-  try {
-    const cartItems = await Cart.find({ userId: req.params.userId }).populate('artworkId');
-    res.json(cartItems);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
-
-// Add/update cart item
-router.post('/', auth, async (req, res) => {
-  const { userId, artworkId, quantity } = req.body;
+// Add or update an item in the cart
+router.post('/add', auth,checkRole(['user']), async (req, res) => {
+  const { artworkId, quantity } = req.body;
 
   try {
-    let cartItem = await Cart.findOne({ userId, artworkId });
+    let cart = await Cart.findOne({ user: req.user.id });
 
-    if (cartItem) {
-      cartItem.quantity = quantity;
-      await cartItem.save();
+    if (!cart) {
+      // If no cart exists, create a new one
+      cart = new Cart({
+        user: req.user.id,
+        items: [{ artwork: artworkId, quantity }]
+      });
     } else {
-      cartItem = new Cart({ userId, artworkId, quantity });
-      await cartItem.save();
+      // If cart exists, check if the item is already in the cart
+      const itemIndex = cart.items.findIndex(item => item.artwork.toString() === artworkId);
+
+      if (itemIndex > -1) {
+        // If item exists, update the quantity
+        cart.items[itemIndex].quantity += quantity;
+
+        // If quantity is zero or less, remove the item
+        if (cart.items[itemIndex].quantity <= 0) {
+          cart.items.splice(itemIndex, 1);
+        }
+      } else {
+        // If item does not exist, add it to the cart
+        if (quantity > 0) {
+          cart.items.push({ artwork: artworkId, quantity });
+        }
+      }
     }
 
-    res.json(cartItem);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
+    // Save the updated cart
+    await cart.save();
+    res.status(200).send(cart);
+
+  } catch (error) {
+    res.status(500).send({ error: 'Failed to update cart' });
   }
 });
 
-// Remove a cart item
-router.delete('/:id', auth, async (req, res) => {
+// Remove an item from the cart
+router.post('/remove', auth,checkRole(['user']), async (req, res) => {
+  const { artworkId } = req.body;
+
   try {
-    await Cart.findByIdAndDelete(req.params.id);
-    res.json({ message: 'Cart item removed' });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
+    let cart = await Cart.findOne({ user: req.user.id });
+
+    if (cart) {
+      // Find the item index
+      const itemIndex = cart.items.findIndex(item => item.artwork.toString() === artworkId);
+
+      if (itemIndex > -1) {
+        // Remove the item from the cart
+        cart.items.splice(itemIndex, 1);
+        await cart.save();
+        res.status(200).send(cart);
+      } else {
+        res.status(404).send({ error: 'Item not found in cart' });
+      }
+    } else {
+      res.status(404).send({ error: 'Cart not found' });
+    }
+
+  } catch (error) {
+    res.status(500).send({ error: 'Failed to remove item from cart' });
   }
 });
 

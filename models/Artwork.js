@@ -1,29 +1,54 @@
-// models/Artwork.js
 const mongoose = require('mongoose');
+const Schema = mongoose.Schema;
 
-const artworkSchema = new mongoose.Schema({
-  title: { type: String, required: true },
-  description: { type: String, required: true },
-  price: { type: Number, required: true },
-  image: { type: String, required: true },
-  category: { type: String, required: true },
-  artist: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+// Define the Artwork schema
+const ArtworkSchema = new Schema({
+  title: {
+    type: String,
+    required: true,
+  },
+  artist: {
+    type: Schema.Types.ObjectId,
+    ref: 'User', // Assuming you have a User model
+    required: true,
+  },
+  description: {
+    type: String,
+  },
+  price: {
+    type: Number,
+    required: true,
+  },
+  image: {
+    type: String,
+  },
+  category: {
+    type: String,
+    enum: ['Painting', 'animation', 'drawing', 'sculpture','Photography'], // Adjust based on categories you have
+  },
   ratings: [
-      {
-        user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-        rating: Number
-      }
-    ],
-  averageRating: { type: Number, default: 0 }
-
+    {
+      type: Number,
+      min: 1,
+      max: 5,
+    },
+  ],
+  averageRating: {
+    type: Number,
+    default: 0,
+  },
 });
-artworkSchema.methods.calculateAverageRating = function() {
+
+// Pre-save hook to calculate average rating
+ArtworkSchema.pre('save', function (next) {
   if (this.ratings.length > 0) {
-    this.averageRating = this.ratings.reduce((acc, curr) => acc + curr.rating, 0) / this.ratings.length;
+    this.averageRating =
+      this.ratings.reduce((a, b) => a + b, 0) / this.ratings.length;
   } else {
     this.averageRating = 0;
   }
-  return this.averageRating;
-};
+  next();
+});
 
-module.exports = mongoose.model('Artwork', artworkSchema);
+// Define and export the Artwork model
+module.exports = mongoose.model('Artwork', ArtworkSchema);

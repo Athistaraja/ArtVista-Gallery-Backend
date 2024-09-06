@@ -44,28 +44,43 @@ router.get('/', async (req, res) => {
   }
 });
 
+router.get('/ratings', auth,async (req, res) => {
+  try {
+    const artworks = await Artwork.find().select('_id averageRating');
+    res.json(artworks);
+  } catch (error) {
+    console.error('Error fetching ratings:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
 
-router.patch('/api/artwork/:id/rating', auth, async (req, res) => {
-  const { id } = req.params;
+
+
+router.post('/:artworkId/rate', auth, async (req, res) => {
+  const { artworkId } = req.params;
   const { rating } = req.body;
 
-  try {
-    const updatedArtwork = await Artwork.findByIdAndUpdate(
-      id,
-      { $set: { rating: rating } }, // Only update the rating field
-      { new: true, runValidators: true }
-    );
+  if (typeof rating !== 'number' || rating < 1 || rating > 5) {
+    return res.status(400).json({ message: 'Invalid rating value' });
+  }
 
-    if (!updatedArtwork) {
+  try {
+    const artwork = await Artwork.findById(artworkId);
+    if (!artwork) {
       return res.status(404).json({ message: 'Artwork not found' });
     }
 
-    res.json(updatedArtwork);
+    // Add the new rating
+    artwork.ratings.push(rating);
+    await artwork.save(); // This will trigger the pre-save hook to update averageRating
+
+    res.json({ artwork: { _id: artworkId, averageRating: artwork.averageRating } });
   } catch (error) {
     console.error('Error updating rating:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
+
 
 
 router.get('/my-artworks', auth, checkRole(['artist']), async (req, res) => {
