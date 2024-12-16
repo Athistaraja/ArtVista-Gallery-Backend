@@ -20,7 +20,8 @@ const UserSchema = new mongoose.Schema({
         type: String,
         enum: ['user', 'artist'],
         default: 'user'
-    }
+    },
+    { timestamps: true }
 });
 
 UserSchema.pre('save', async function (next) {
