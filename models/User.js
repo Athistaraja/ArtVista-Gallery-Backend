@@ -21,8 +21,7 @@ const UserSchema = new mongoose.Schema({
         enum: ['user', 'artist'],
         default: 'user'
     },
-    { timestamps: true }
-});
+{ timestamps: true });
 
 UserSchema.pre('save', async function (next) {
     if (!this.isModified('password')) {
